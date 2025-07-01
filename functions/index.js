@@ -1,42 +1,47 @@
-const { onRequest } = require("firebase-functions/v2/https");
+const {onRequest} = require("firebase-functions/v2/https");
+const {setGlobalOptions} = require("firebase-functions");
 const logger = require("firebase-functions/logger");
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
-const { setGlobalOptions } = require("firebase-functions");
+
 dotenv.config();
+
 const stripe = require("stripe")(process.env.STRIPE_KEY);
 
 const app = express();
 
-setGlobalOptions({maxInstances:10})
+setGlobalOptions({maxInstances: 10});
 
-app.use(cors({ origin: true }));
-
+app.use(cors({origin: true}));
 app.use(express.json());
 
 app.get("/", (req, res) => {
   res.status(200).json({
-    message: "Success !",
+    message: "Success!",
   });
 });
 
-app.post("/payments/create", async (req, res) => {
-  const total = parseInt(req.query.total);
+app.post("/payment/create", async (req, res) => {
+  const total = parseInt(req.query.total, 10);
 
   if (total > 0) {
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: total,
-      currency: "usd",
-    });
-    console.log(paymentIntent);
+    try {
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: total,
+        currency: "usd",
+      });
 
-    res.status(201).json({
-      clientSecret: paymentIntent.client_secret,
-    });
+      res.status(201).json({
+        clientSecret: paymentIntent.client_secret,
+      });
+    } catch (error) {
+      logger.error("Stripe Error", error);
+      res.status(500).json({error: "Payment creation failed"});
+    }
   } else {
     res.status(403).json({
-      message: "total must be greater than 0",
+      message: "Total must be greater than 0",
     });
   }
 });
